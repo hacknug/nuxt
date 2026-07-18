@@ -104,5 +104,10 @@ export const kitDiagnostics = /* #__PURE__ */ defineDiagnostics({
       fix: 'Check the module\'s install/upgrade hook implementation, or report this issue to the module author.',
       docs: false,
     },
+    NUXT_B8020: {
+      why: (p: { layer: string }) => `Required layer \`${p.layer}\` could not be resolved and is missing.`,
+      fix: 'Make sure the layer is cloned, installed and reachable, then try again.',
+      docs: false,
+    },
   },
 })

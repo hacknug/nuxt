@@ -1,10 +1,10 @@
 import process from 'node:process'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { loadNuxtConfig } from '@nuxt/kit'
-import { basename, join } from 'pathe'
+import { basename, join, resolve } from 'pathe'
 
 describe('loadNuxtConfig', () => {
   it('should add named aliases for local layers', async () => {
@@ -88,5 +88,48 @@ describe('loadNuxtConfig', () => {
     const cwd = fileURLToPath(new URL('./layer-fixture', import.meta.url)).replace(/\\/g, '/')
     const config = await loadNuxtConfig({ cwd, envName: 'staging' })
     expect(config.envName).toBe('staging')
+  })
+
+  describe('required layers', () => {
+    let tempDir: string
+
+    beforeAll(async () => {
+      tempDir = await mkdtemp(join(tmpdir(), 'nuxt-required-layer-'))
+      await mkdir(join(tempDir, 'present-layer'), { recursive: true })
+      await writeFile(join(tempDir, 'present-layer/nuxt.config.ts'), 'export default defineNuxtConfig({})')
+    })
+
+    afterAll(async () => {
+      await rm(tempDir, { recursive: true, force: true })
+    })
+
+    it('does not throw when all required layers are resolved', async () => {
+      await writeFile(join(tempDir, 'nuxt.config.ts'), `export default defineNuxtConfig({
+  extends: [
+    ['./present-layer', { required: true }],
+  ],
+})`)
+      const config = await loadNuxtConfig({ cwd: tempDir })
+      expect(config._layers.map(l => l.cwd)).toContain(resolve(tempDir, 'present-layer'))
+    })
+
+    it('does not throw for a missing layer that is not required', async () => {
+      await writeFile(join(tempDir, 'nuxt.config.ts'), `export default defineNuxtConfig({
+  extends: [
+    ['./missing-layer', { required: false }],
+  ],
+})`)
+      await expect(loadNuxtConfig({ cwd: tempDir })).resolves.not.toThrow()
+    })
+
+    it('throws when a required layer is missing', async () => {
+      await writeFile(join(tempDir, 'nuxt.config.ts'), `export default defineNuxtConfig({
+  extends: [
+    ['./present-layer', { required: true }],
+    ['./missing-layer', { required: true }],
+  ],
+})`)
+      await expect(loadNuxtConfig({ cwd: tempDir })).rejects.toThrow(/missing-layer/)
+    })
   })
 })

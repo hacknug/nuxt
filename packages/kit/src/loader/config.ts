@@ -7,11 +7,12 @@ import { loadConfig, setupDotenv } from 'c12'
 import type { NuxtConfig, NuxtOptions } from '@nuxt/schema'
 import { glob } from 'tinyglobby'
 import { createDefu, defu } from 'defu'
-import { basename, join, relative } from 'pathe'
+import { basename, join, relative, resolve } from 'pathe'
 import { resolveModuleURL } from 'exsolve'
 import { withTrailingSlash, withoutTrailingSlash } from 'ufo'
 
 import { directoryToURL } from '../internal/esm.ts'
+import { kitDiagnostics } from '../diagnostics/kit-api.ts'
 
 export interface LoadNuxtConfigOptions extends Omit<LoadConfigOptions<NuxtConfig>, 'overrides'> {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
@@ -93,6 +94,10 @@ export async function loadNuxtConfig (opts: LoadNuxtConfigOptions): Promise<Nuxt
   const _layers: ConfigLayer<NuxtConfig, ConfigLayerMeta>[] = []
   const processedLayers = new Set<string>()
   const localRelativePaths = new Set(localLayers.map(layer => withoutTrailingSlash(layer)))
+
+  // Ensure `required` layers were actually resolved
+  assertRequiredLayers(layers, cwd, kitDiagnostics)
+
   for (const layer of layers) {
     // Resolve `rootDir` & `srcDir` of layers
     // Create a shallow copy to avoid mutating the cached ESM config object
@@ -169,6 +174,28 @@ async function withDefineNuxtConfig<T> (fn: () => Promise<T>) {
     globalSelf[key].count--
     if (!globalSelf[key].count) {
       delete globalSelf[key]
+    }
+  }
+}
+
+function assertRequiredLayers (layers: ConfigLayer<NuxtConfig, ConfigLayerMeta>[], cwd: string | undefined, diagnostics: typeof kitDiagnostics) {
+  const baseDir = cwd || process.cwd()
+  const resolvedRoots = new Set(layers
+    .map(layer => layer.config?.rootDir ?? layer.cwd)
+    .filter((root): root is string => Boolean(root))
+    .map(root => withoutTrailingSlash(resolve(baseDir, root))),
+  )
+
+  // c12 strips `extends` from resolved sub-layers so we only need to handle root config
+  const rootConfig = layers.find(layer => layer.config?.extends)?.config
+  if (!rootConfig) { return }
+
+  const declared = Array.isArray(rootConfig.extends) ? rootConfig.extends : [rootConfig.extends]
+  for (const entry of declared) {
+    const [source, options] = Array.isArray(entry) ? entry : [entry]
+    if (typeof source !== 'string' || !(options as { required?: boolean } | undefined)?.required) { continue }
+    if (!resolvedRoots.has(withoutTrailingSlash(resolve(baseDir, source)))) {
+      throw diagnostics.NUXT_B8020({ layer: source })
     }
   }
 }

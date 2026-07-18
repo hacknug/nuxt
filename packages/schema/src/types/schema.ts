@@ -551,6 +551,8 @@ export interface ConfigSchema {
    * Value should be either a string or array of strings pointing to source directories or config path relative to current config.
    * You can use `github:`, `gh:` `gitlab:` or `bitbucket:`
    *
+   * When a layer is marked as required (e.g. `['github:username/repoName', { required: true }]`), Nuxt will throw an error if the layer cannot be resolved or installed.
+   *
    * @see [`c12` docs on extending config layers](https://github.com/unjs/c12#extending-config-layer-from-remote-sources)
    *
    * @see [`giget` documentation](https://github.com/unjs/giget)
