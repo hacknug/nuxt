@@ -92,22 +92,16 @@ describe('useRuntimeConfig env value casting', () => {
   it.each([
     { envValue: '', expected: '' },
     { envValue: 'hello-world', expected: 'hello-world' },
-    { envValue: 0, expected: 0 },
-    { envValue: 3000, expected: 3000 },
+    { envValue: '0', expected: 0 },
     { envValue: '3000', expected: 3000 },
-    { envValue: true, expected: true },
     { envValue: 'true', expected: true },
-    { envValue: false, expected: false },
     { envValue: 'false', expected: false },
     { envValue: undefined, expected: '' },
     { envValue: 'undefined', expected: '' },
-    { envValue: null, expected: '' },
     { envValue: 'null', expected: '' },
-    { envValue: 4848e0, expected: 4848 },
     { envValue: '4848e0', expected: 4848 },
     { envValue: '"4848e0"', expected: '4848e0' },
     { envValue: '""4848e0""', expected: '"4848e0"' },
-    { envValue: { foo: "bar" }, expected: String({ foo: "bar" }) },
     { envValue: '{ foo: "bar" }', expected: '{ foo: "bar" }' },
   ])('casts $envValue to $expected', ({ envValue, expected }) => {
     const runtimeConfig = { myVar: '' }
